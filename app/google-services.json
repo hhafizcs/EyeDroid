@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "867008278228",
+    "firebase_url": "https://eyedroid-ad8ff.firebaseio.com",
+    "project_id": "eyedroid-ad8ff",
+    "storage_bucket": "eyedroid-ad8ff.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:867008278228:android:c9bc29ba02ffaef8",
+        "android_client_info": {
+          "package_name": "com.utd.teameyedroid.eyedroid"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "867008278228-mf5uh0letq72qa3sh7vr52sd8qses56o.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.utd.teameyedroid.eyedroid",
+            "certificate_hash": "f27be88406893896955901a8a9d676eaaa51f63e"
+          }
+        },
+        {
+          "client_id": "867008278228-7bkmeee5ek6t2shqeop5j5vl57p5cj2t.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDcCeV2boYFJJix6v7-t7wYUT1RGNbyXPY"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "867008278228-7bkmeee5ek6t2shqeop5j5vl57p5cj2t.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
