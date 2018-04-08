@@ -1,17 +1,14 @@
 package com.utd.teameyedroid.eyedroid;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
-import android.os.Build;
+import android.content.Intent;
 import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.EditText;
+import android.view.ViewTreeObserver;
+import android.widget.Button;
 import android.widget.FrameLayout;
-import android.widget.Toast;
+import android.widget.TextView;
 
 import com.google.android.gms.tasks.Continuation;
 import com.google.android.gms.tasks.OnCompleteListener;
@@ -24,31 +21,38 @@ import com.google.firebase.functions.HttpsCallableResult;
 import com.vidyo.VidyoClient.Connector.Connector.ConnectorViewStyle;
 import com.vidyo.VidyoClient.Connector.ConnectorPkg;
 import com.vidyo.VidyoClient.Connector.Connector;
+import com.vidyo.VidyoClient.Device.RemoteCamera;
+import com.vidyo.VidyoClient.Endpoint.Participant;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity implements Connector.IConnect {
 
     private static final String HOST = "prod.vidyo.io";
 
     private Connector mVidyoConnector = null;
+    private Connector.IConnect mConnector = this;
     private int remoteParticipants = 2;
-    private FrameLayout videoFrame;
-    private EditText roomEditText;
-    private EditText userEditText;
 
-    Connector.IConnect mConnector = this;
+    private FrameLayout videoFrame;
+    private Button disconnectButton;
+    private TextView connectingTextView;
+    private TextView dotTextView;
 
     private DatabaseReference mDatabase = null;
     private FirebaseFunctions mFunctions;
 
-    private static final String[] mPermissions = new String[] {
-            Manifest.permission.CAMERA,
-            Manifest.permission.RECORD_AUDIO
-    };
+    private String cnxType;
+    private String roomName = "";
+    private static volatile boolean connected = false;
+    private static volatile String dotText = "";
+    private boolean chatLoaded = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,63 +60,192 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
         setContentView(R.layout.activity_main);
 
         videoFrame = findViewById(R.id.videoFrame);
-        roomEditText = findViewById(R.id.roomEditText);
-        userEditText = findViewById(R.id.userEditText);
+        disconnectButton = findViewById(R.id.disconnectButton);
+        connectingTextView = findViewById(R.id.connectingTextView);
+        dotTextView = findViewById(R.id.dotTextView);
 
         ConnectorPkg.setApplicationUIContext(this);
         ConnectorPkg.initialize();
 
-        List<String> permissionsNeeded = new ArrayList<>();
-        for (String permission : mPermissions) {
-            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED)
-                permissionsNeeded.add(permission);
-        }
-
-        if (permissionsNeeded.size() > 0) {
-            ActivityCompat.requestPermissions(this, permissionsNeeded.toArray(new String[0]), 1988);
-        }
-
         mDatabase = FirebaseDatabase.getInstance().getReference();
         mFunctions = FirebaseFunctions.getInstance();
+
+        Bundle bundle = getIntent().getExtras();
+        cnxType = "";
+        if(bundle != null)
+            cnxType = bundle.getString("cnxType");
     }
 
-    public void Connect (View v) {
-        final String roomName = roomEditText.getText().toString();
-        final String userName = userEditText.getText().toString();
+    @Override
+    protected void onStart() {
+        super.onStart();
 
-        if(userName.equals("")) {
-            Toast.makeText(getApplicationContext(), "The User Name Cannot Be Empty", Toast.LENGTH_SHORT).show();
-        } else {
-            if(roomName.equals("")) {
-                Toast.makeText(getApplicationContext(), "The Room Name Cannot Be Empty", Toast.LENGTH_SHORT).show();
-            } else {
-                mVidyoConnector = new Connector(videoFrame, ConnectorViewStyle.VIDYO_CONNECTORVIEWSTYLE_Default, remoteParticipants, "", "", 0);
-                mVidyoConnector.showViewAt(videoFrame, 0, 0, videoFrame.getWidth(), videoFrame.getHeight());
-                mVidyoConnector.setCameraPrivacy(false);
-                mVidyoConnector.setMode(Connector.ConnectorMode.VIDYO_CONNECTORMODE_Foreground);
-
-                generateToken(userName, roomName)
-                        .addOnCompleteListener(new OnCompleteListener<String>() {
-                            @Override
-                            public void onComplete(@NonNull Task<String> task) {
-                                if (!task.isSuccessful()) {
-                                    Exception e = task.getException();
-                                    if (e instanceof FirebaseFunctionsException) {
-                                        FirebaseFunctionsException ffe = (FirebaseFunctionsException) e;
-                                        FirebaseFunctionsException.Code code = ffe.getCode();
-                                        Object details = ffe.getDetails();
-                                    }
-                                } else {
-                                    String token = task.getResult();
-                                    mVidyoConnector.connect(HOST, token, userName, roomName, mConnector);
-                                }
-                            }
-                        });
+        videoFrame.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                if(!chatLoaded) {
+                    startVideoChat();
+                    chatLoaded = true;
+                }
             }
+        });
+    }
+
+    private void startVideoChat () {
+        switch (cnxType) {
+            case "pinToVolunteer":
+                //A Person In Need Is Trying To Connect To A Volunteer
+                videoFrame.setVisibility(View.INVISIBLE);
+                disconnectButton.setVisibility(View.INVISIBLE);
+                connectingTextView.setVisibility(View.INVISIBLE);
+                dotTextView.setVisibility(View.INVISIBLE);
+
+                openRoom();
+
+                break;
+            case "volunteerToPin":
+                //A Volunteer Is Trying To Connect To A Person In Need
+                videoFrame.setVisibility(View.INVISIBLE);
+                disconnectButton.setVisibility(View.INVISIBLE);
+
+                Bundle bundle = getIntent().getExtras();
+                if(bundle != null)
+                    roomName = bundle.getString("roomName");
+
+                joinRoom();
+
+                break;
         }
     }
 
-    public void Disconnect (View v) {
+    private void openRoom () {
+        final String userName = "Hassan";
+        roomName = userName + "|" + System.currentTimeMillis();
+
+        mVidyoConnector = new Connector(videoFrame, ConnectorViewStyle.VIDYO_CONNECTORVIEWSTYLE_Default, remoteParticipants, "", "", 0);
+        mVidyoConnector.showViewAt(videoFrame, 0, 0, videoFrame.getWidth(), videoFrame.getHeight());
+        mVidyoConnector.setCameraPrivacy(false);
+        mVidyoConnector.setMode(Connector.ConnectorMode.VIDYO_CONNECTORMODE_Foreground);
+        registerConnectorParticipantEventListener();
+
+        generateToken(userName)
+                .addOnCompleteListener(new OnCompleteListener<String>() {
+                    @Override
+                    public void onComplete(@NonNull Task<String> task) {
+                        if (!task.isSuccessful()) {
+                            Exception e = task.getException();
+                            if (e instanceof FirebaseFunctionsException) {
+                                FirebaseFunctionsException ffe = (FirebaseFunctionsException) e;
+                                FirebaseFunctionsException.Code code = ffe.getCode();
+                                Object details = ffe.getDetails();
+                            }
+                        } else {
+                            String token = task.getResult();
+
+                            Room newRoom = new Room(roomName, userName, "pinToVolunteer");
+                            mDatabase.child("Rooms").child(roomName).setValue(newRoom);
+
+                            mVidyoConnector.connect(HOST, token, userName, roomName, mConnector);
+                        }
+                    }
+                });
+    }
+
+    private void joinRoom () {
+        final String userName = "Ali";
+
+        mVidyoConnector = new Connector(videoFrame, ConnectorViewStyle.VIDYO_CONNECTORVIEWSTYLE_Default, remoteParticipants, "", "", 0);
+        mVidyoConnector.showViewAt(videoFrame, 0, 0, videoFrame.getWidth(), videoFrame.getHeight());
+        mVidyoConnector.setCameraPrivacy(false);
+        mVidyoConnector.setMode(Connector.ConnectorMode.VIDYO_CONNECTORMODE_Foreground);
+        registerConnectorParticipantEventListener();
+
+        generateToken(userName)
+                .addOnCompleteListener(new OnCompleteListener<String>() {
+                    @Override
+                    public void onComplete(@NonNull Task<String> task) {
+                        if (!task.isSuccessful()) {
+                            Exception e = task.getException();
+                            if (e instanceof FirebaseFunctionsException) {
+                                FirebaseFunctionsException ffe = (FirebaseFunctionsException) e;
+                                FirebaseFunctionsException.Code code = ffe.getCode();
+                                Object details = ffe.getDetails();
+                            }
+                        } else {
+                            String token = task.getResult();
+
+                            mDatabase.child("Rooms").child(roomName).child("helperUsername").setValue("Ali");
+                            mDatabase.child("Rooms").child(roomName).child("connected").setValue(true);
+
+                            mVidyoConnector.connect(HOST, token, userName, roomName, mConnector);
+                        }
+                    }
+                });
+
+        checkIfConnected();
+    }
+
+    private void checkIfConnected() {
+        new Thread(new Runnable() {
+            public void run() {
+                int counter = 0;
+                long beingSeconds = System.currentTimeMillis() / 1000;
+
+                while (!connected) {
+                    long laterSeconds = System.currentTimeMillis() / 1000;
+
+                    if(laterSeconds - beingSeconds >= 10) {
+                        break;
+                    } else {
+                        try {
+                            TimeUnit.MILLISECONDS.sleep(400);
+                            switch (counter % 4) {
+                                case 0:
+                                    dotText = ".";
+                                    break;
+                                case 1:
+                                    dotText = "..";
+                                    break;
+                                case 2:
+                                    dotText = "...";
+                                    break;
+                                case 3:
+                                    dotText = "";
+                                    break;
+                            }
+                            counter++;
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    dotTextView.setText(dotText);
+                                }
+                            });
+                        } catch (Exception e) {}
+                    }
+                }
+
+                if(connected) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            connectingTextView.setVisibility(View.INVISIBLE);
+                            dotTextView.setVisibility(View.INVISIBLE);
+                            videoFrame.setVisibility(View.VISIBLE);
+                            disconnectButton.setVisibility(View.VISIBLE);
+                        }
+                    });
+                } else {
+                    couldNotConnect();
+                }
+            }
+        }).start();
+    }
+
+    public void disconnectClicked (View v) {
+        disconnect();
+    }
+
+    private void disconnect () {
         mVidyoConnector.disconnect();
         mVidyoConnector.hideView(videoFrame);
         mVidyoConnector.disable();
@@ -124,11 +257,77 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
 
     public void onDisconnected(Connector.ConnectorDisconnectReason reason) {}
 
-    private Task<String> generateToken(String username, String roomname) {
-        // Create the arguments to the callable function, which is just one string
+    private void registerConnectorParticipantEventListener() {
+        mVidyoConnector.registerParticipantEventListener(new Connector.IRegisterParticipantEventListener() {
+            @Override
+            public void onParticipantJoined(Participant participant) {
+
+            }
+
+            @Override
+            public void onParticipantLeft(Participant participant) {
+                switch (cnxType) {
+                    case "pinToVolunteer":
+                        //The volunteer has left the chat
+                        volunteerLeftChat();
+
+                        break;
+                    case "volunteerToPin":
+                        //The PIN has left the chat
+                        pinLeftChat();
+
+                        break;
+                }
+            }
+
+            @Override
+            public void onDynamicParticipantChanged(ArrayList<Participant> arrayList, ArrayList<RemoteCamera> arrayList1) {
+                if (arrayList.size() == 1) {
+                    connected = true;
+                }
+            }
+
+            @Override
+            public void onLoudestParticipantChanged(Participant participant, boolean b) {
+
+            }
+        });
+    }
+
+    private void pinLeftChat () {
+        disconnect();
+        Intent intent = new Intent(MainActivity.this, PinListActivity.class);
+        Bundle bundle = new Bundle();
+        bundle.putString("chatEnded", "pinExited");
+        intent.putExtras(bundle);
+        startActivity(intent);
+        finish();
+    }
+
+    private void volunteerLeftChat () {
+        disconnect();
+        Intent intent = new Intent(MainActivity.this, UsageActivity.class);
+        Bundle bundle = new Bundle();
+        bundle.putString("chatEnded", "volunteerExited");
+        bundle.putInt("level", 2);
+        intent.putExtras(bundle);
+        startActivity(intent);
+        finish();
+    }
+
+    private void couldNotConnect () {
+        disconnect();
+        Intent intent = new Intent(MainActivity.this, PinListActivity.class);
+        Bundle bundle = new Bundle();
+        bundle.putString("chatEnded", "couldNotConnect");
+        intent.putExtras(bundle);
+        startActivity(intent);
+        finish();
+    }
+
+    private Task<String> generateToken(String username) {
         Map<String, Object> data = new HashMap<>();
         data.put("username", username);
-        data.put("roomname", roomname);
 
         return mFunctions
                 .getHttpsCallable("generateTokenOC")
@@ -136,9 +335,6 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
                 .continueWith(new Continuation<HttpsCallableResult, String>() {
                     @Override
                     public String then(@NonNull Task<HttpsCallableResult> task) throws Exception {
-                        // This continuation runs on either success or failure, but if the task
-                        // has failed then getResult() will throw an Exception which will be
-                        // propagated down.
                         return (String) task.getResult().getData();
                     }
                 });
