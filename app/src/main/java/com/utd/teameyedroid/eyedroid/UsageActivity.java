@@ -1,20 +1,13 @@
 package com.utd.teameyedroid.eyedroid;
 
-import android.Manifest;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.preference.PreferenceManager;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class UsageActivity extends AppCompatActivity {
 
@@ -22,31 +15,26 @@ public class UsageActivity extends AppCompatActivity {
     private SharedPreferences.Editor prefEditor;
     private Button topButton;
     private Button bottomButton;
-
-    private static final String[] mPermissions = new String[] {
-            android.Manifest.permission.CAMERA,
-            Manifest.permission.RECORD_AUDIO
-    };
+    private int level = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_usage);
 
-        List<String> permissionsNeeded = new ArrayList<>();
-        for (String permission : mPermissions) {
-            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED)
-                permissionsNeeded.add(permission);
-        }
-
-        if (permissionsNeeded.size() > 0) {
-            ActivityCompat.requestPermissions(this, permissionsNeeded.toArray(new String[0]), 1988);
-        }
-
         preferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
         topButton = findViewById(R.id.topButton);
         bottomButton = findViewById(R.id.bottomButton);
+    }
 
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+        initialize();
+    }
+
+    private void initialize () {
         Bundle bundle = getIntent().getExtras();
         if(bundle != null) {
             String chatEnded = bundle.getString("chatEnded");
@@ -64,11 +52,11 @@ public class UsageActivity extends AppCompatActivity {
                 }
             }
 
-            int level = bundle.getInt("level");
-            if(level == 0) {
+            int wantedLevel = bundle.getInt("level");
+            if(wantedLevel == 0) {
                 setButtonsTextAndTag(1);
             } else {
-                setButtonsTextAndTag(level);
+                setButtonsTextAndTag(wantedLevel);
             }
         } else {
             setButtonsTextAndTag(1);
@@ -125,10 +113,10 @@ public class UsageActivity extends AppCompatActivity {
         }
     }
 
-    private void setButtonsTextAndTag (int level) {
+    private void setButtonsTextAndTag (int wantedLevel) {
         String usage = preferences.getString("usage", "notSet");
 
-        switch (level) {
+        switch (wantedLevel) {
             case 1:
                 switch (usage) {
                     case "notSet":
@@ -172,6 +160,25 @@ public class UsageActivity extends AppCompatActivity {
                     case "volunteer":
                         break;
                 }
+                break;
+        }
+
+        level = wantedLevel;
+    }
+
+    @Override
+    public void onBackPressed() {
+        switch (level) {
+            case 0:
+            case 1:
+            case 2:
+                Intent intent = new Intent(Intent.ACTION_MAIN);
+                intent.addCategory(Intent.CATEGORY_HOME);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+                break;
+            case 3:
+                setButtonsTextAndTag(2);
                 break;
         }
     }

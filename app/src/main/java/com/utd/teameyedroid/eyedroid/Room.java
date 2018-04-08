@@ -2,19 +2,23 @@ package com.utd.teameyedroid.eyedroid;
 
 public class Room {
     public String roomName;
-    public String pinUsername;
-    public String helperUsername;
+    public String pinDisplayName;
+    public String pinUserName;
+    public String helperDisplayName;
     public String cnxType;
+    public String dateTime;
     public boolean connected;
 
     public Room() {}
 
-    public Room (String roomName, String pinUsername, String cnxType) {
+    public Room (String roomName, String pinDisplayName, String cnxType, String dateTime, String pinUserName) {
         this.roomName = roomName;
-        this.pinUsername = pinUsername;
+        this.pinDisplayName = pinDisplayName;
         this.cnxType = cnxType;
+        this.dateTime = dateTime;
+        this.pinUserName = pinUserName;
 
-        helperUsername = "";
+        helperDisplayName = "";
         connected = false;
     }
 }
