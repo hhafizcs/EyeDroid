@@ -27,22 +27,6 @@ public class PinListActivity extends ListActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_pin_list);
 
-        Bundle bundle = getIntent().getExtras();
-        if(bundle != null) {
-            String chatEnded = bundle.getString("chatEnded");
-
-            if(chatEnded != null) {
-                switch (chatEnded) {
-                    case "pinExited":
-                        Toast.makeText(this, "The person in need has left the chat.", Toast.LENGTH_LONG).show();
-                        break;
-                    case "couldNotConnect":
-                        Toast.makeText(this, "Could not make a connection.", Toast.LENGTH_LONG).show();
-                        break;
-                }
-            }
-        }
-
         mRoomsReference = FirebaseDatabase.getInstance().getReference().child("Rooms");
 
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, new ArrayList<String>());

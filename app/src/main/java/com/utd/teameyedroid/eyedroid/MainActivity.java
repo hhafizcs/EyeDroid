@@ -246,6 +246,7 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
     }
 
     private void disconnect () {
+        mVidyoConnector.unregisterParticipantEventListener();
         mVidyoConnector.disconnect();
         mVidyoConnector.hideView(videoFrame);
         mVidyoConnector.disable();
@@ -296,9 +297,10 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
 
     private void pinLeftChat () {
         disconnect();
-        Intent intent = new Intent(MainActivity.this, PinListActivity.class);
+        Intent intent = new Intent(MainActivity.this, UsageActivity.class);
         Bundle bundle = new Bundle();
         bundle.putString("chatEnded", "pinExited");
+        bundle.putInt("level", 2);
         intent.putExtras(bundle);
         startActivity(intent);
         finish();
@@ -317,9 +319,10 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
 
     private void couldNotConnect () {
         disconnect();
-        Intent intent = new Intent(MainActivity.this, PinListActivity.class);
+        Intent intent = new Intent(MainActivity.this, UsageActivity.class);
         Bundle bundle = new Bundle();
         bundle.putString("chatEnded", "couldNotConnect");
+        bundle.putInt("level", 2);
         intent.putExtras(bundle);
         startActivity(intent);
         finish();
@@ -338,5 +341,14 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
                         return (String) task.getResult().getData();
                     }
                 });
+    }
+
+    @Override
+    protected void onDestroy () {
+        disconnect();
+
+        mDatabase.child("Rooms").child(roomName).removeValue();
+
+        super.onDestroy();
     }
 }

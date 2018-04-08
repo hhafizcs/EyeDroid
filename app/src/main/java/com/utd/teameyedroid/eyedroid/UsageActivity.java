@@ -43,8 +43,6 @@ public class UsageActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(this, permissionsNeeded.toArray(new String[0]), 1988);
         }
 
-        //String storedPreference = preferences.getString("usage", "notSet");
-
         preferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
         topButton = findViewById(R.id.topButton);
         bottomButton = findViewById(R.id.bottomButton);
@@ -52,8 +50,18 @@ public class UsageActivity extends AppCompatActivity {
         Bundle bundle = getIntent().getExtras();
         if(bundle != null) {
             String chatEnded = bundle.getString("chatEnded");
-            if(chatEnded != null && chatEnded.equals("volunteerExited")) {
-                Toast.makeText(this, "The volunteer has left the chat.", Toast.LENGTH_LONG).show();
+            if(chatEnded != null) {
+                switch (chatEnded) {
+                    case "volunteerExited":
+                        Toast.makeText(this, "The volunteer has left the chat.", Toast.LENGTH_LONG).show();
+                        break;
+                    case "pinExited":
+                        Toast.makeText(this, "The person in need has left the chat.", Toast.LENGTH_LONG).show();
+                        break;
+                    case "couldNotConnect":
+                        Toast.makeText(this, "Could not make a connection.", Toast.LENGTH_LONG).show();
+                        break;
+                }
             }
 
             int level = bundle.getInt("level");
@@ -70,16 +78,22 @@ public class UsageActivity extends AppCompatActivity {
     public void topButtonClicked (View v) {
         switch (v.getTag().toString()) {
             case "0":
-                //Use As Person In Need Of Help Clicked
+                //use as pin clicked
                 prefEditor = preferences.edit();
                 prefEditor.putString("usage", "pin");
                 prefEditor.commit();
-
                 setButtonsTextAndTag(2);
-
                 break;
             case "2":
-                //Call Personal Contact Clicked
+                //make a call clicked
+                setButtonsTextAndTag(3);
+                break;
+            case "4":
+                //show list of pins clicked
+                startActivity(new Intent(this, PinListActivity.class));
+                break;
+            case "6":
+                //call personal contact clicked
                 break;
         }
     }
@@ -87,40 +101,77 @@ public class UsageActivity extends AppCompatActivity {
     public void bottomButtonClicked (View v) {
         switch (v.getTag().toString()) {
             case "1":
-                //Use As Volunteer Clicked
+                //use as volunteer clicked
                 prefEditor = preferences.edit();
                 prefEditor.putString("usage", "volunteer");
                 prefEditor.commit();
-
-                startActivity(new Intent(this, PinListActivity.class));
-
+                setButtonsTextAndTag(2);
                 break;
             case "3":
-                //Call Volunteer Clicked
+                //pin settings clicked
+                break;
+            case "5":
+                //volunteer settings clicked
+                break;
+            case "7":
+                //call volunteer clicked
                 Intent intent = new Intent(UsageActivity.this, MainActivity.class);
                 Bundle bundle = new Bundle();
                 bundle.putString("cnxType", "pinToVolunteer");
                 intent.putExtras(bundle);
                 startActivity(intent);
                 finish();
-
                 break;
         }
     }
 
     private void setButtonsTextAndTag (int level) {
+        String usage = preferences.getString("usage", "notSet");
+
         switch (level) {
             case 1:
-                topButton.setText("Use As Person In Need Of Help");
-                topButton.setTag("0");
-                bottomButton.setText("Use As Volunteer");
-                bottomButton.setTag("1");
+                switch (usage) {
+                    case "notSet":
+                        topButton.setText("Use As Person In Need Of Help");
+                        topButton.setTag("0");
+                        bottomButton.setText("Use As Volunteer");
+                        bottomButton.setTag("1");
+                        break;
+                    case "pin":
+                        setButtonsTextAndTag(2);
+                        break;
+                    case "volunteer":
+                        setButtonsTextAndTag(2);
+                        break;
+                }
                 break;
             case 2:
-                topButton.setText("Call Personal Contact");
-                topButton.setTag("2");
-                bottomButton.setText("Call Volunteer");
-                bottomButton.setTag("3");
+                switch (usage) {
+                    case "pin":
+                        topButton.setText("Make a Call");
+                        topButton.setTag("2");
+                        bottomButton.setText("Settings");
+                        bottomButton.setTag("3");
+                        break;
+                    case "volunteer":
+                        topButton.setText("Show List of People In Need");
+                        topButton.setTag("4");
+                        bottomButton.setText("Settings");
+                        bottomButton.setTag("5");
+                        break;
+                }
+                break;
+            case 3:
+                switch (usage) {
+                    case "pin":
+                        topButton.setText("Call Personal Contact");
+                        topButton.setTag("6");
+                        bottomButton.setText("Call Volunteer");
+                        bottomButton.setTag("7");
+                        break;
+                    case "volunteer":
+                        break;
+                }
                 break;
         }
     }
