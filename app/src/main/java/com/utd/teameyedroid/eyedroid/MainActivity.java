@@ -1,6 +1,8 @@
 package com.utd.teameyedroid.eyedroid;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -48,8 +50,13 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
     private DatabaseReference mDatabase = null;
     private FirebaseFunctions mFunctions;
 
+    private SharedPreferences preferences;
+    private SharedPreferences.Editor prefEditor;
+
     private String cnxType;
     private String roomName = "";
+    private String userName = "";
+    private String displayName = "";
     private static volatile boolean connected = false;
     private static volatile String dotText = "";
     private boolean chatLoaded = false;
@@ -70,6 +77,8 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
         mDatabase = FirebaseDatabase.getInstance().getReference();
         mFunctions = FirebaseFunctions.getInstance();
 
+        preferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+
         Bundle bundle = getIntent().getExtras();
         cnxType = "";
         if(bundle != null)
@@ -89,6 +98,9 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
                 }
             }
         });
+
+        userName = preferences.getString("username", "notSet");
+        displayName = preferences.getString("displayName", "notSet");
     }
 
     private void startVideoChat () {
@@ -119,7 +131,6 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
     }
 
     private void openRoom () {
-        final String userName = "Hassan";
         roomName = userName + "|" + System.currentTimeMillis();
 
         mVidyoConnector = new Connector(videoFrame, ConnectorViewStyle.VIDYO_CONNECTORVIEWSTYLE_Default, remoteParticipants, "", "", 0);
@@ -142,18 +153,16 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
                         } else {
                             String token = task.getResult();
 
-                            Room newRoom = new Room(roomName, userName, "pinToVolunteer");
+                            Room newRoom = new Room(roomName, displayName, "pinToVolunteer" , System.currentTimeMillis() + "", userName);
                             mDatabase.child("Rooms").child(roomName).setValue(newRoom);
 
-                            mVidyoConnector.connect(HOST, token, userName, roomName, mConnector);
+                            mVidyoConnector.connect(HOST, token, displayName, roomName, mConnector);
                         }
                     }
                 });
     }
 
     private void joinRoom () {
-        final String userName = "Ali";
-
         mVidyoConnector = new Connector(videoFrame, ConnectorViewStyle.VIDYO_CONNECTORVIEWSTYLE_Default, remoteParticipants, "", "", 0);
         mVidyoConnector.showViewAt(videoFrame, 0, 0, videoFrame.getWidth(), videoFrame.getHeight());
         mVidyoConnector.setCameraPrivacy(false);
@@ -174,10 +183,10 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
                         } else {
                             String token = task.getResult();
 
-                            mDatabase.child("Rooms").child(roomName).child("helperUsername").setValue("Ali");
+                            mDatabase.child("Rooms").child(roomName).child("helperDisplayName").setValue(displayName);
                             mDatabase.child("Rooms").child(roomName).child("connected").setValue(true);
 
-                            mVidyoConnector.connect(HOST, token, userName, roomName, mConnector);
+                            mVidyoConnector.connect(HOST, token, displayName, roomName, mConnector);
                         }
                     }
                 });
@@ -242,7 +251,8 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
     }
 
     public void disconnectClicked (View v) {
-        disconnect();
+        startActivity(new Intent(MainActivity.this, UsageActivity.class));
+        finish();
     }
 
     private void disconnect () {
@@ -341,6 +351,12 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
                         return (String) task.getResult().getData();
                     }
                 });
+    }
+
+    @Override
+    public void onBackPressed() {
+        startActivity(new Intent(MainActivity.this, UsageActivity.class));
+        finish();
     }
 
     @Override
