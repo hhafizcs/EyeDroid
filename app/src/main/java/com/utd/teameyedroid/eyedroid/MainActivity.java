@@ -3,6 +3,8 @@ package com.utd.teameyedroid.eyedroid;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -26,11 +28,9 @@ import com.vidyo.VidyoClient.Connector.Connector;
 import com.vidyo.VidyoClient.Device.RemoteCamera;
 import com.vidyo.VidyoClient.Endpoint.Participant;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -57,9 +57,13 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
     private String roomName = "";
     private String userName = "";
     private String displayName = "";
+    private String usage;
     private static volatile boolean connected = false;
     private static volatile String dotText = "";
     private boolean chatLoaded = false;
+
+    private TextToSpeech textToSpeechObj;
+    private TextToSpeech.OnInitListener ttsListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,6 +82,12 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
         mFunctions = FirebaseFunctions.getInstance();
 
         preferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+
+        usage = preferences.getString("usage", "notSet");
+
+        setListeners();
+
+        textToSpeechObj = new TextToSpeech(getApplicationContext(), ttsListener);
 
         Bundle bundle = getIntent().getExtras();
         cnxType = "";
@@ -251,7 +261,11 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
     }
 
     public void disconnectClicked (View v) {
-        startActivity(new Intent(MainActivity.this, UsageActivity.class));
+        Intent intent = new Intent(MainActivity.this, UsageActivity.class);
+        Bundle bundle = new Bundle();
+        bundle.putString("chatEnded", "volunteerExited");
+        intent.putExtras(bundle);
+        startActivity(intent);
         finish();
     }
 
@@ -295,6 +309,9 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
             public void onDynamicParticipantChanged(ArrayList<Participant> arrayList, ArrayList<RemoteCamera> arrayList1) {
                 if (arrayList.size() == 1) {
                     connected = true;
+
+                    if(usage.equals("pin"))
+                        textToSpeechObj.speak("You are connected to a helper.", TextToSpeech.QUEUE_ADD, null, "1");
                 }
             }
 
@@ -306,7 +323,6 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
     }
 
     private void pinLeftChat () {
-        disconnect();
         Intent intent = new Intent(MainActivity.this, UsageActivity.class);
         Bundle bundle = new Bundle();
         bundle.putString("chatEnded", "pinExited");
@@ -317,7 +333,6 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
     }
 
     private void volunteerLeftChat () {
-        disconnect();
         Intent intent = new Intent(MainActivity.this, UsageActivity.class);
         Bundle bundle = new Bundle();
         bundle.putString("chatEnded", "volunteerExited");
@@ -328,7 +343,6 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
     }
 
     private void couldNotConnect () {
-        disconnect();
         Intent intent = new Intent(MainActivity.this, UsageActivity.class);
         Bundle bundle = new Bundle();
         bundle.putString("chatEnded", "couldNotConnect");
@@ -353,15 +367,65 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
                 });
     }
 
+    private void setListeners () {
+        ttsListener =  new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+                if(status != TextToSpeech.ERROR) {
+                    textToSpeechObj.setLanguage(Locale.UK);
+                    textToSpeechObj.setSpeechRate(0.8f);
+
+                    textToSpeechObj.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                        @Override
+                        public void onStart(String utteranceId) {
+
+                        }
+
+                        @Override
+                        public void onDone(String utteranceId) {
+
+                        }
+
+                        @Override
+                        public void onError(String utteranceId) {
+
+                        }
+                    });
+
+                    if(usage.equals("pin")) {
+                        if(connected)
+                            textToSpeechObj.speak("You are connected to a helper.", TextToSpeech.QUEUE_ADD, null, "1");
+                        else
+                            textToSpeechObj.speak("Waiting for a helper to join the chat.", TextToSpeech.QUEUE_ADD, null, "1");
+                    }
+                }
+            }
+        };
+    }
+
     @Override
     public void onBackPressed() {
-        startActivity(new Intent(MainActivity.this, UsageActivity.class));
+        String chatEnded = "";
+        Intent intent = new Intent(MainActivity.this, UsageActivity.class);
+        Bundle bundle = new Bundle();
+
+        if(usage.equals("pin") && cnxType.equals("pinToVolunteer")) {
+            chatEnded = "pinExited";
+        } else if (usage.equals("volunteer") && cnxType.equals("volunteerToPin")) {
+            chatEnded = "volunteerExited";
+        }
+
+        bundle.putString("chatEnded", chatEnded);
+        intent.putExtras(bundle);
+        startActivity(intent);
         finish();
     }
 
     @Override
     protected void onDestroy () {
         disconnect();
+
+        textToSpeechObj.shutdown();
 
         mDatabase.child("Rooms").child(roomName).removeValue();
 

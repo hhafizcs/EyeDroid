@@ -29,7 +29,8 @@
             android:textColor="@color/colorPrimary"
             android:textStyle="bold"
             android:textSize="30sp"
-            android:onClick="topButtonClicked"/>
+            android:onClick="buttonClicked"
+            android:visibility="invisible"/>
 
         <Button
             android:id="@+id/bottomButton"
@@ -39,7 +40,8 @@
             android:textColor="@color/colorPrimary"
             android:textStyle="bold"
             android:textSize="30sp"
-            android:onClick="bottomButtonClicked"/>
+            android:onClick="buttonClicked"
+            android:visibility="invisible"/>
     </LinearLayout>
 
 </android.support.constraint.ConstraintLayout>

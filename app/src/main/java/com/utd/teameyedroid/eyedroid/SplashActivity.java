@@ -15,7 +15,6 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import com.firebase.ui.auth.AuthUI;
-import com.firebase.ui.auth.IdpResponse;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
@@ -30,7 +29,7 @@ import java.util.List;
 
 public class SplashActivity extends AppCompatActivity {
 
-    Button givePermissionsButton;
+    private Button givePermissionsButton;
 
     private SharedPreferences preferences;
     private SharedPreferences.Editor prefEditor;
@@ -38,13 +37,16 @@ public class SplashActivity extends AppCompatActivity {
     private DatabaseReference mDatabase;
     private DatabaseReference mUserReference;
 
-    private static final int RC_SIGN_IN = 123;
-    List<AuthUI.IdpConfig> providers = Arrays.asList(new AuthUI.IdpConfig.Builder(AuthUI.GOOGLE_PROVIDER).build());
-
+    private static final int RC_SIGN_IN = 1;
     private static final String[] mPermissions = new String[] {
-            android.Manifest.permission.CAMERA,
-            Manifest.permission.RECORD_AUDIO
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.INTERNET
     };
+
+    private boolean permissionsGranted = false;
+
+    private List<AuthUI.IdpConfig> providers = Arrays.asList(new AuthUI.IdpConfig.Builder(AuthUI.GOOGLE_PROVIDER).build());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,7 +64,7 @@ public class SplashActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
 
-        checkPermissions();
+        checkState();
     }
 
     @Override
@@ -90,8 +92,6 @@ public class SplashActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
 
         if (requestCode == RC_SIGN_IN) {
-            IdpResponse response = IdpResponse.fromResultIntent(data);
-
             if (resultCode == RESULT_OK) {
                 // Successfully signed in
                 if(FirebaseAuth.getInstance().getCurrentUser() != null) {
@@ -121,6 +121,7 @@ public class SplashActivity extends AppCompatActivity {
                 }
 
                 startActivity(new Intent(SplashActivity.this, UsageActivity.class));
+                finish();
             }
 
             @Override
@@ -144,7 +145,19 @@ public class SplashActivity extends AppCompatActivity {
         if (permissionsNeeded.size() > 0) {
             ActivityCompat.requestPermissions(this, permissionsNeeded.toArray(new String[0]), 1988);
         } else {
+            permissionsGranted = true;
             startActivityForResult(AuthUI.getInstance().createSignInIntentBuilder().setAvailableProviders(providers).build(), RC_SIGN_IN);
+        }
+    }
+
+    private void checkState() {
+        if(!permissionsGranted) {
+            checkPermissions();
+        } else if (FirebaseAuth.getInstance().getCurrentUser() == null) {
+            startActivityForResult(AuthUI.getInstance().createSignInIntentBuilder().setAvailableProviders(providers).build(), RC_SIGN_IN);
+        } else {
+            startActivity(new Intent(SplashActivity.this, UsageActivity.class));
+            finish();
         }
     }
 }
