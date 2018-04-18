@@ -22,6 +22,7 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.iid.FirebaseInstanceId;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -44,6 +45,8 @@ public class SplashActivity extends AppCompatActivity {
             Manifest.permission.INTERNET
     };
 
+    private String roomName = "";
+    private boolean fromNotification = false;
     private boolean permissionsGranted = false;
 
     private List<AuthUI.IdpConfig> providers = Arrays.asList(new AuthUI.IdpConfig.Builder(AuthUI.GOOGLE_PROVIDER).build());
@@ -64,6 +67,14 @@ public class SplashActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
 
+        Bundle bundle = getIntent().getExtras();
+        if(bundle != null) {
+            roomName = bundle.getString("roomName");
+            if(roomName != null && roomName.length() > 0) {
+                fromNotification = true;
+            }
+        }
+
         checkState();
     }
 
@@ -82,7 +93,7 @@ public class SplashActivity extends AppCompatActivity {
             givePermissionsButton.setVisibility(View.INVISIBLE);
             startActivityForResult(AuthUI.getInstance().createSignInIntentBuilder().setAvailableProviders(providers).build(), RC_SIGN_IN);
         } else {
-            Toast.makeText(this, "The app cannot operate if not all permissions are granted. If the permissions dialog is not appearing anymore, please re-install the app.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "The application cannot operate if not all permissions are granted. If the permissions dialog is not appearing anymore, please re-install the application.", Toast.LENGTH_LONG).show();
             givePermissionsButton.setVisibility(View.VISIBLE);
         }
     }
@@ -102,7 +113,11 @@ public class SplashActivity extends AppCompatActivity {
     }
 
     private void handleUser (FirebaseUser firebaseUser) {
-        final User user = new User(firebaseUser.getUid(), firebaseUser.getDisplayName());
+        String username = firebaseUser.getUid();
+        String displayName = firebaseUser.getDisplayName();
+        String email = firebaseUser.getEmail();
+        final String regToken = FirebaseInstanceId.getInstance().getToken();
+        final User user = new User(username, displayName, email, regToken);
 
         prefEditor = preferences.edit();
         prefEditor.putString("username", user.username);
@@ -117,11 +132,23 @@ public class SplashActivity extends AppCompatActivity {
                 if (dataSnapshot != null) {
                     if(!dataSnapshot.exists()) {
                         mDatabase.child("Users").child(user.username).setValue(user);
+                    } else {
+                        mUserReference.child("regToken").setValue(regToken);
                     }
                 }
 
-                startActivity(new Intent(SplashActivity.this, UsageActivity.class));
-                finish();
+                if(!fromNotification) {
+                    startActivity(new Intent(SplashActivity.this, UsageActivity.class));
+                    finish();
+                } else {
+                    Intent intent = new Intent(SplashActivity.this, MainActivity.class);
+                    Bundle bundle = new Bundle();
+                    bundle.putString("cnxType", "contactToPin");
+                    bundle.putString("roomName", roomName);
+                    intent.putExtras(bundle);
+                    startActivity(intent);
+                    finish();
+                }
             }
 
             @Override
