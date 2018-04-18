@@ -2,7 +2,10 @@ package com.utd.teameyedroid.eyedroid;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.MediaPlayer;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Message;
 import android.preference.PreferenceManager;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
@@ -11,6 +14,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -26,6 +30,8 @@ public class UsageActivity extends AppCompatActivity {
 
     private Button topButton;
     private Button bottomButton;
+    private LinearLayout selectContactLinearLayout;
+    private LinearLayout usageLinearLayout;
 
     private int level = 0;
 
@@ -33,6 +39,10 @@ public class UsageActivity extends AppCompatActivity {
     private String usage;
     private boolean speechNotRecognized = false;
     private boolean afterExitChat = false;
+
+    private static final long DOUBLE_PRESS_INTERVAL = 250;
+    private boolean doubleClicked = false;
+    private long lastPressTime;
 
     private final int RC_SPEECH_INPUT = 2;
 
@@ -44,6 +54,8 @@ public class UsageActivity extends AppCompatActivity {
         preferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
         topButton = findViewById(R.id.topButton);
         bottomButton = findViewById(R.id.bottomButton);
+        selectContactLinearLayout = findViewById(R.id.selectContactLinearLayout);
+        usageLinearLayout = findViewById(R.id.usageLinearLayout);
 
         setListeners();
 
@@ -92,6 +104,14 @@ public class UsageActivity extends AppCompatActivity {
                             message = "You have left the chat.";
                         }
                         break;
+                    case "contactExited":
+                        if(usage.equals("pin")) {
+                            message = "The personal contact has left the chat.";
+                        }
+                        else if(usage.equals("volunteer")) {
+                            message = "You have left the chat.";
+                        }
+                        break;
                     case "pinExited":
                         if(usage.equals("pin")) {
                             message = "You have left the chat.";
@@ -117,6 +137,7 @@ public class UsageActivity extends AppCompatActivity {
                 }
             }
         } else {
+            level = 1;
             setButtonsTextAndTag(1);
         }
     }
@@ -135,6 +156,7 @@ public class UsageActivity extends AppCompatActivity {
         switch (requestCode) {
             case RC_SPEECH_INPUT: {
                 if (resultCode == RESULT_OK && data != null) {
+                    int numOfContacts = preferences.getInt("numOfContacts", 0);
                     ArrayList<String> matches = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
 
                     if (matches.contains("person in need") && level == 1) {
@@ -163,7 +185,14 @@ public class UsageActivity extends AppCompatActivity {
                         bottomButton.setVisibility(View.VISIBLE);
                         initialize();
                     } else if (matches.contains("contact") && level == 3) {
-                        executeAction("6");
+                        level = 4;
+                        textToSpeechObj.speak(getOptionsMessage(level), TextToSpeech.QUEUE_ADD, null, "1");
+                    } else if (matches.contains("one") && level == 4 && numOfContacts > 0) {
+                        callPersonalContact(1);
+                    } else if (matches.contains("two") && level == 4 && numOfContacts > 1) {
+                        callPersonalContact(2);
+                    } else if (matches.contains("three") && level == 4 && numOfContacts > 2) {
+                        callPersonalContact(3);
                     } else {
                         speechNotRecognized = true;
                         textToSpeechObj.speak("Your command is not valid.", TextToSpeech.QUEUE_ADD, null, "1");
@@ -173,6 +202,18 @@ public class UsageActivity extends AppCompatActivity {
             }
 
         }
+    }
+
+    public void callPersonalContact (int contactPosition) {
+        String personalContactEmail = preferences.getString("contact" + contactPosition, "notSet").split("/")[1];
+
+        Intent personalCallIntent = new Intent(UsageActivity.this, MainActivity.class);
+        Bundle personalCallBundle = new Bundle();
+        personalCallBundle.putString("cnxType", "pinToContact");
+        personalCallBundle.putString("contactEmail", personalContactEmail);
+        personalCallIntent.putExtras(personalCallBundle);
+        startActivity(personalCallIntent);
+        finish();
     }
 
     public void buttonClicked (View v) {
@@ -214,24 +255,31 @@ public class UsageActivity extends AppCompatActivity {
                 break;
             case "3":
                 //pin settings clicked
+                startActivity(new Intent(UsageActivity.this, SettingsActivity.class));
+                finish();
                 break;
             case "4":
                 //show list of pins clicked
-                startActivity(new Intent(this, PinListActivity.class));
+                startActivity(new Intent(UsageActivity.this, PinListActivity.class));
+                finish();
                 break;
             case "5":
                 //volunteer settings clicked
+                startActivity(new Intent(UsageActivity.this, SettingsActivity.class));
+                finish();
                 break;
             case "6":
                 //call personal contact clicked
+                level = 4;
+                setButtonsTextAndTag(4);
                 break;
             case "7":
                 //call volunteer clicked
-                Intent intent = new Intent(UsageActivity.this, MainActivity.class);
-                Bundle bundle = new Bundle();
-                bundle.putString("cnxType", "pinToVolunteer");
-                intent.putExtras(bundle);
-                startActivity(intent);
+                Intent volunteerCallIntent = new Intent(UsageActivity.this, MainActivity.class);
+                Bundle volunteerCallBundle = new Bundle();
+                volunteerCallBundle.putString("cnxType", "pinToVolunteer");
+                volunteerCallIntent.putExtras(volunteerCallBundle);
+                startActivity(volunteerCallIntent);
                 finish();
                 break;
         }
@@ -276,10 +324,26 @@ public class UsageActivity extends AppCompatActivity {
             case 3:
                 switch (usage) {
                     case "pin":
+                        topButton.setVisibility(View.VISIBLE);
+                        bottomButton.setVisibility(View.VISIBLE);
+                        usageLinearLayout.setVisibility(View.VISIBLE);
+                        selectContactLinearLayout.setVisibility(View.INVISIBLE);
                         topButton.setText("Call Personal Contact");
                         topButton.setTag("6");
                         bottomButton.setText("Call Volunteer");
                         bottomButton.setTag("7");
+                        break;
+                    case "volunteer":
+                        break;
+                }
+                break;
+            case 4:
+                switch (usage) {
+                    case "pin":
+                        topButton.setVisibility(View.INVISIBLE);
+                        bottomButton.setVisibility(View.INVISIBLE);
+                        usageLinearLayout.setVisibility(View.INVISIBLE);
+                        selectContactLinearLayout.setVisibility(View.VISIBLE);
                         break;
                     case "volunteer":
                         break;
@@ -293,7 +357,7 @@ public class UsageActivity extends AppCompatActivity {
 
         switch (wantedOptionsLevel) {
             case 1:
-                message = "say, Person In Need, to use the app as a person in need, or say, Volunteer, to use the app as a volunteer.";
+                message = "say, Person In Need, to use the application as a person in need, or say, Volunteer, to use the application as a volunteer.";
                 break;
             case 2:
                 message = "say, yes, if you would like to use voice commands, or say, no, otherwise.";
@@ -301,9 +365,34 @@ public class UsageActivity extends AppCompatActivity {
             case 3:
                 message = "say, Contact, to call a personal contact, or say, Volunteer, to call a volunteer.";
                 break;
+            case 4:
+                message = getCallPersonalConatctMessage();
+                break;
         }
 
         return message;
+    }
+
+    private String getCallPersonalConatctMessage() {
+        String message = "";
+        int numOfContacts = preferences.getInt("numOfContacts", 0);
+
+        switch (numOfContacts) {
+            case 0:
+                message = "No personal contacts have been added.";
+                break;
+            case 1:
+                message = "Say one, to call contact one.";
+                break;
+            case 2:
+                message = "Say one, to call contact one, or say two, to call contact two.";
+                break;
+            case 3:
+                message = "Say one, to call contact one, say two, to call contact two, or say three, to call contact three.";
+                break;
+        }
+
+        return  message;
     }
 
     private void goHome() {
@@ -333,12 +422,17 @@ public class UsageActivity extends AppCompatActivity {
 
                         @Override
                         public void onDone(String utteranceId) {
+                            int numOfContacts = preferences.getInt("numOfContacts", 0);
+
                             if(afterExitChat) {
                                 level = 3;
                                 textToSpeechObj.speak(getOptionsMessage(3), TextToSpeech.QUEUE_ADD, null, "1");
                                 afterExitChat = false;
                             } else {
-                                if(speechNotRecognized) {
+                                if(level == 4 && numOfContacts == 0) {
+                                    level = 3;
+                                    textToSpeechObj.speak(getOptionsMessage(level), TextToSpeech.QUEUE_ADD, null, "1");
+                                } else if(speechNotRecognized) {
                                     textToSpeechObj.speak(getOptionsMessage(level), TextToSpeech.QUEUE_ADD, null, "1");
                                     speechNotRecognized = false;
                                 } else {
@@ -375,6 +469,67 @@ public class UsageActivity extends AppCompatActivity {
                 }
             }
         };
+
+        selectContactLinearLayout.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                long pressTime = System.currentTimeMillis();
+
+                if (pressTime - lastPressTime <= DOUBLE_PRESS_INTERVAL) {
+                    //Double click => Call Conatct 2
+                    int numOfContacts = preferences.getInt("numOfContacts", 0);
+                    if(numOfContacts > 1) {
+                        callPersonalContact(2);
+                    } else {
+                        MediaPlayer wrongActionMP = MediaPlayer.create(UsageActivity.this,R.raw.wrong);
+                        wrongActionMP.start();
+                    }
+
+                    doubleClicked = true;
+                } else {
+                    doubleClicked = false;
+
+                    Handler myHandler = new Handler(new Handler.Callback() {
+                        @Override
+                        public boolean handleMessage(Message msg) {
+                            if (!doubleClicked) {
+                                //Single click => Call Conatct 1
+                                int numOfContacts = preferences.getInt("numOfContacts", 0);
+                                if(numOfContacts > 0) {
+                                    callPersonalContact(1);
+                                } else {
+                                    MediaPlayer wrongActionMP = MediaPlayer.create(UsageActivity.this,R.raw.wrong);
+                                    wrongActionMP.start();
+                                }
+                            }
+
+                            return true;
+                        }
+                    });
+
+                    Message m = new Message();
+                    myHandler.sendMessageDelayed(m,DOUBLE_PRESS_INTERVAL);
+                }
+
+                lastPressTime = pressTime;
+            }
+        });
+
+        selectContactLinearLayout.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                //Long click => Call Conatct 3
+                int numOfContacts = preferences.getInt("numOfContacts", 0);
+                if(numOfContacts > 2) {
+                    callPersonalContact(3);
+                } else {
+                    MediaPlayer wrongActionMP = MediaPlayer.create(UsageActivity.this,R.raw.wrong);
+                    wrongActionMP.start();
+                }
+
+                return true;
+            }
+        });
     }
 
     @Override
@@ -389,7 +544,12 @@ public class UsageActivity extends AppCompatActivity {
                     goHome();
                     break;
                 case 3:
+                    level = 2;
                     setButtonsTextAndTag(2);
+                    break;
+                case 4:
+                    level = 3;
+                    setButtonsTextAndTag(3);
                     break;
             }
         }

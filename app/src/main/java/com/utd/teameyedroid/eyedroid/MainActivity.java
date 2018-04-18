@@ -51,12 +51,12 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
     private FirebaseFunctions mFunctions;
 
     private SharedPreferences preferences;
-    private SharedPreferences.Editor prefEditor;
 
-    private String cnxType;
+    private String cnxType = "";
     private String roomName = "";
     private String userName = "";
     private String displayName = "";
+    private String contactEmail = "";
     private String usage;
     private static volatile boolean connected = false;
     private static volatile String dotText = "";
@@ -69,6 +69,9 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        connected = false;
+        dotText = "";
 
         videoFrame = findViewById(R.id.videoFrame);
         disconnectButton = findViewById(R.id.disconnectButton);
@@ -90,14 +93,18 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
         textToSpeechObj = new TextToSpeech(getApplicationContext(), ttsListener);
 
         Bundle bundle = getIntent().getExtras();
-        cnxType = "";
-        if(bundle != null)
+        if(bundle != null) {
             cnxType = bundle.getString("cnxType");
+            contactEmail = bundle.getString("contactEmail");
+        }
     }
 
     @Override
     protected void onStart() {
         super.onStart();
+
+        userName = preferences.getString("username", "notSet");
+        displayName = preferences.getString("displayName", "notSet");
 
         videoFrame.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
             @Override
@@ -108,14 +115,12 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
                 }
             }
         });
-
-        userName = preferences.getString("username", "notSet");
-        displayName = preferences.getString("displayName", "notSet");
     }
 
     private void startVideoChat () {
         switch (cnxType) {
             case "pinToVolunteer":
+            case "pinToContact":
                 //A Person In Need Is Trying To Connect To A Volunteer
                 videoFrame.setVisibility(View.INVISIBLE);
                 disconnectButton.setVisibility(View.INVISIBLE);
@@ -126,6 +131,7 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
 
                 break;
             case "volunteerToPin":
+            case "contactToPin":
                 //A Volunteer Is Trying To Connect To A Person In Need
                 videoFrame.setVisibility(View.INVISIBLE);
                 disconnectButton.setVisibility(View.INVISIBLE);
@@ -163,7 +169,7 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
                         } else {
                             String token = task.getResult();
 
-                            Room newRoom = new Room(roomName, displayName, "pinToVolunteer" , System.currentTimeMillis() + "", userName);
+                            Room newRoom = new Room(roomName, displayName, cnxType , System.currentTimeMillis() + "", userName, contactEmail);
                             mDatabase.child("Rooms").child(roomName).setValue(newRoom);
 
                             mVidyoConnector.connect(HOST, token, displayName, roomName, mConnector);
@@ -193,6 +199,8 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
                         } else {
                             String token = task.getResult();
 
+                            mDatabase.child("Rooms").child(roomName).child("notificationSent").setValue(true);
+                            mDatabase.child("Rooms").child(roomName).child("helperUserName").setValue(userName);
                             mDatabase.child("Rooms").child(roomName).child("helperDisplayName").setValue(displayName);
                             mDatabase.child("Rooms").child(roomName).child("connected").setValue(true);
 
@@ -213,7 +221,7 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
                 while (!connected) {
                     long laterSeconds = System.currentTimeMillis() / 1000;
 
-                    if(laterSeconds - beingSeconds >= 10) {
+                    if(laterSeconds - beingSeconds >= 15) {
                         break;
                     } else {
                         try {
@@ -263,7 +271,11 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
     public void disconnectClicked (View v) {
         Intent intent = new Intent(MainActivity.this, UsageActivity.class);
         Bundle bundle = new Bundle();
-        bundle.putString("chatEnded", "volunteerExited");
+        if(cnxType.equals("volunteerToPin"))
+            bundle.putString("chatEnded", "volunteerExited");
+        else
+            bundle.putString("chatEnded", "contactExited");
+
         intent.putExtras(bundle);
         startActivity(intent);
         finish();
@@ -295,12 +307,15 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
                     case "pinToVolunteer":
                         //The volunteer has left the chat
                         volunteerLeftChat();
-
                         break;
                     case "volunteerToPin":
+                    case "contactToPin":
                         //The PIN has left the chat
                         pinLeftChat();
-
+                        break;
+                    case "pinToContact":
+                        //The Personal Contact has left the chat
+                        contactLeftChat();
                         break;
                 }
             }
@@ -310,8 +325,12 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
                 if (arrayList.size() == 1) {
                     connected = true;
 
-                    if(usage.equals("pin"))
-                        textToSpeechObj.speak("You are connected to a helper.", TextToSpeech.QUEUE_ADD, null, "1");
+                    if(usage.equals("pin")) {
+                        if(cnxType.equals("pinToVolunteer"))
+                            textToSpeechObj.speak("You are connected to a volunteer.", TextToSpeech.QUEUE_ADD, null, "1");
+                        else
+                            textToSpeechObj.speak("You are connected to the personal contact.", TextToSpeech.QUEUE_ADD, null, "1");
+                    }
                 }
             }
 
@@ -336,6 +355,16 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
         Intent intent = new Intent(MainActivity.this, UsageActivity.class);
         Bundle bundle = new Bundle();
         bundle.putString("chatEnded", "volunteerExited");
+        bundle.putInt("level", 2);
+        intent.putExtras(bundle);
+        startActivity(intent);
+        finish();
+    }
+
+    private void contactLeftChat () {
+        Intent intent = new Intent(MainActivity.this, UsageActivity.class);
+        Bundle bundle = new Bundle();
+        bundle.putString("chatEnded", "contactExited");
         bundle.putInt("level", 2);
         intent.putExtras(bundle);
         startActivity(intent);
@@ -393,10 +422,17 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
                     });
 
                     if(usage.equals("pin")) {
-                        if(connected)
-                            textToSpeechObj.speak("You are connected to a helper.", TextToSpeech.QUEUE_ADD, null, "1");
-                        else
-                            textToSpeechObj.speak("Waiting for a helper to join the chat.", TextToSpeech.QUEUE_ADD, null, "1");
+                        if(connected) {
+                            if(cnxType.equals("pinToVolunteer"))
+                                textToSpeechObj.speak("You are connected to a volunteer.", TextToSpeech.QUEUE_ADD, null, "1");
+                            else
+                                textToSpeechObj.speak("You are connected to the personal contact.", TextToSpeech.QUEUE_ADD, null, "1");
+                        } else {
+                            if(cnxType.equals("pinToVolunteer"))
+                                textToSpeechObj.speak("Waiting for a volunteer to join the chat.", TextToSpeech.QUEUE_ADD, null, "1");
+                            else
+                                textToSpeechObj.speak("Waiting for the personal contact to join the chat.", TextToSpeech.QUEUE_ADD, null, "1");
+                        }
                     }
                 }
             }
@@ -409,10 +445,12 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
         Intent intent = new Intent(MainActivity.this, UsageActivity.class);
         Bundle bundle = new Bundle();
 
-        if(usage.equals("pin") && cnxType.equals("pinToVolunteer")) {
+        if(usage.equals("pin")) {
             chatEnded = "pinExited";
         } else if (usage.equals("volunteer") && cnxType.equals("volunteerToPin")) {
             chatEnded = "volunteerExited";
+        } else if (usage.equals("volunteer") && cnxType.equals("contactToPin")) {
+            chatEnded = "contactExited";
         }
 
         bundle.putString("chatEnded", chatEnded);
