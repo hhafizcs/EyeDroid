@@ -173,6 +173,7 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
                             mDatabase.child("Rooms").child(roomName).setValue(newRoom);
 
                             mVidyoConnector.connect(HOST, token, displayName, roomName, mConnector);
+                            mVidyoConnector.cycleCamera();
                         }
                     }
                 });
@@ -205,6 +206,7 @@ public class MainActivity extends AppCompatActivity implements Connector.IConnec
                             mDatabase.child("Rooms").child(roomName).child("connected").setValue(true);
 
                             mVidyoConnector.connect(HOST, token, displayName, roomName, mConnector);
+                            mVidyoConnector.showPreview(false);
                         }
                     }
                 });

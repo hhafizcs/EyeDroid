@@ -8,12 +8,16 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CompoundButton;
+import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.Switch;
 
 public class SettingsActivity extends AppCompatActivity {
 
+    private LinearLayout usageLayout;
+    private LinearLayout voiceLayout;
+    private LinearLayout editContactsLayout;
     private Button editContactsButton;
     private RadioGroup usageRadioGroup;
     private RadioButton pinRadioButton;
@@ -33,6 +37,9 @@ public class SettingsActivity extends AppCompatActivity {
 
         preferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
 
+        usageLayout = findViewById(R.id.usageLayout);
+        voiceLayout = findViewById(R.id.voiceLayout);
+        editContactsLayout = findViewById(R.id.editContactsLayout);
         editContactsButton = findViewById(R.id.editContactsButton);
         usageRadioGroup = findViewById(R.id.usageRadioGroup);
         pinRadioButton = findViewById(R.id.pinRadioButton);
@@ -50,16 +57,23 @@ public class SettingsActivity extends AppCompatActivity {
         if(usage.equals("pin")) {
             pinRadioButton.setChecked(true);
             volunteerRadioButton.setChecked(false);
-            editContactsButton.setVisibility(View.VISIBLE);
+
+            if(useVoiceRec.equals("yes")) {
+                voiceSwitch.setChecked(true);
+            } else {
+                voiceSwitch.setChecked(false);
+            }
+
+            usageLayout.setVisibility(View.VISIBLE);
+            voiceLayout.setVisibility(View.VISIBLE);
+            editContactsLayout.setVisibility(View.VISIBLE);
         } else {
             pinRadioButton.setChecked(false);
             volunteerRadioButton.setChecked(true);
-        }
 
-        if(useVoiceRec.equals("yes")) {
-            voiceSwitch.setChecked(true);
-        } else {
-            voiceSwitch.setChecked(false);
+            usageLayout.setVisibility(View.VISIBLE);
+            voiceLayout.setVisibility(View.INVISIBLE);
+            editContactsLayout.setVisibility(View.INVISIBLE);
         }
     }
 
@@ -71,10 +85,23 @@ public class SettingsActivity extends AppCompatActivity {
                     prefEditor = preferences.edit();
                     prefEditor.putString("usage", "pin");
                     prefEditor.commit();
+
+                    usageLayout.setVisibility(View.VISIBLE);
+                    voiceLayout.setVisibility(View.VISIBLE);
+                    editContactsLayout.setVisibility(View.VISIBLE);
                 } else {
                     prefEditor = preferences.edit();
-                    prefEditor.putString("volunteer", "pin");
+                    prefEditor.putString("usage", "volunteer");
                     prefEditor.commit();
+
+                    prefEditor = preferences.edit();
+                    prefEditor.putString("useVoiceRec", "no");
+                    prefEditor.commit();
+                    voiceSwitch.setChecked(false);
+
+                    usageLayout.setVisibility(View.VISIBLE);
+                    voiceLayout.setVisibility(View.INVISIBLE);
+                    editContactsLayout.setVisibility(View.INVISIBLE);
                 }
             }
         });
