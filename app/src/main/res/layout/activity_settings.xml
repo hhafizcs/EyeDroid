@@ -21,20 +21,7 @@
         app:layout_constraintTop_toTopOf="parent">
 
         <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/editContactsButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Edit Personal Contacts"
-                android:onClick="editContactsClicked"
-                android:visibility="invisible"/>
-        </LinearLayout>
-
-        <LinearLayout
+            android:id="@+id/usageLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
@@ -58,27 +45,53 @@
                     android:id="@+id/pinRadioButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Pin" />
+                    android:text="Pin"
+                    android:layout_weight="1"/>
 
                 <RadioButton
                     android:id="@+id/volunteerRadioButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Volunteer" />
+                    android:text="Volunteer"
+                    android:layout_weight="1"/>
             </RadioGroup>
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/voiceLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:layout_marginTop="25dp">
+
+            <EditText
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Voice"
+                android:background="@android:color/transparent"
+                android:cursorVisible="false"/>
 
             <Switch
                 android:id="@+id/voiceSwitch"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Voice" />
+                android:layout_weight="2" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/editContactsLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="25dp">
+
+            <Button
+                android:id="@+id/editContactsButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Edit Personal Contacts"
+                android:onClick="editContactsClicked"/>
         </LinearLayout>
     </LinearLayout>
 </android.support.constraint.ConstraintLayout>

@@ -193,6 +193,15 @@ public class UsageActivity extends AppCompatActivity {
                         callPersonalContact(2);
                     } else if (matches.contains("three") && level == 4 && numOfContacts > 2) {
                         callPersonalContact(3);
+                    } else if (matches.contains("buttons") && level > 2) {
+                        topButton.setVisibility(View.VISIBLE);
+                        bottomButton.setVisibility(View.VISIBLE);
+                        prefEditor = preferences.edit();
+                        prefEditor.putString("useVoiceRec", "no");
+                        prefEditor.commit();
+                        useVoiceRec = "no";
+                        level = 2;
+                        setButtonsTextAndTag(level);
                     } else {
                         speechNotRecognized = true;
                         textToSpeechObj.speak("Your command is not valid.", TextToSpeech.QUEUE_ADD, null, "1");
@@ -245,6 +254,10 @@ public class UsageActivity extends AppCompatActivity {
                 prefEditor.putString("usage", "volunteer");
                 prefEditor.commit();
                 usage = "volunteer";
+                prefEditor = preferences.edit();
+                prefEditor.putString("useVoiceRec", "no");
+                prefEditor.commit();
+                useVoiceRec = "no";
                 level = 2;
                 setButtonsTextAndTag(level);
                 break;
@@ -322,31 +335,23 @@ public class UsageActivity extends AppCompatActivity {
                 }
                 break;
             case 3:
-                switch (usage) {
-                    case "pin":
-                        topButton.setVisibility(View.VISIBLE);
-                        bottomButton.setVisibility(View.VISIBLE);
-                        usageLinearLayout.setVisibility(View.VISIBLE);
-                        selectContactLinearLayout.setVisibility(View.INVISIBLE);
-                        topButton.setText("Call Personal Contact");
-                        topButton.setTag("6");
-                        bottomButton.setText("Call Volunteer");
-                        bottomButton.setTag("7");
-                        break;
-                    case "volunteer":
-                        break;
+                if(usage.equals("pin")) {
+                    topButton.setVisibility(View.VISIBLE);
+                    bottomButton.setVisibility(View.VISIBLE);
+                    usageLinearLayout.setVisibility(View.VISIBLE);
+                    selectContactLinearLayout.setVisibility(View.INVISIBLE);
+                    topButton.setText("Call Personal Contact");
+                    topButton.setTag("6");
+                    bottomButton.setText("Call Volunteer");
+                    bottomButton.setTag("7");
                 }
                 break;
             case 4:
-                switch (usage) {
-                    case "pin":
-                        topButton.setVisibility(View.INVISIBLE);
-                        bottomButton.setVisibility(View.INVISIBLE);
-                        usageLinearLayout.setVisibility(View.INVISIBLE);
-                        selectContactLinearLayout.setVisibility(View.VISIBLE);
-                        break;
-                    case "volunteer":
-                        break;
+                if(usage.equals("pin")) {
+                    topButton.setVisibility(View.INVISIBLE);
+                    bottomButton.setVisibility(View.INVISIBLE);
+                    usageLinearLayout.setVisibility(View.INVISIBLE);
+                    selectContactLinearLayout.setVisibility(View.VISIBLE);
                 }
                 break;
         }
@@ -530,6 +535,34 @@ public class UsageActivity extends AppCompatActivity {
                 return true;
             }
         });
+
+        View.OnLongClickListener switchToVoiceListener = new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                if(usage.equals("notSet")) {
+                    level = 1;
+                    textToSpeechObj.speak(getOptionsMessage(level), TextToSpeech.QUEUE_ADD, null, "1");
+                } else if (usage.equals("pin") && useVoiceRec.equals("notSet")) {
+                    level = 2;
+                    textToSpeechObj.speak(getOptionsMessage(level), TextToSpeech.QUEUE_ADD, null, "1");
+                } else if(usage.equals("pin") && (level == 2 || level == 3)) {
+                    topButton.setVisibility(View.INVISIBLE);
+                    bottomButton.setVisibility(View.INVISIBLE);
+                    prefEditor = preferences.edit();
+                    prefEditor.putString("useVoiceRec", "yes");
+                    prefEditor.commit();
+                    useVoiceRec = "yes";
+                    level = 3;
+                    textToSpeechObj.speak(getOptionsMessage(level), TextToSpeech.QUEUE_ADD, null, "1");
+                }
+
+                return true;
+            }
+        };
+
+        topButton.setOnLongClickListener(switchToVoiceListener);
+        bottomButton.setOnLongClickListener(switchToVoiceListener);
+        usageLinearLayout.setOnLongClickListener(switchToVoiceListener);
     }
 
     @Override
